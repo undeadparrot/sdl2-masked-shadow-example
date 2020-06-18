@@ -1,47 +1,13 @@
-import ctypes
 import sys
 
+import sdl2.blendmode
 import sdl2.ext
 import sdl2.sdlimage
-import sdl2.blendmode
-from sdl2 import (
-    SDL_LoadBMP,
-    SDL_QUIT,
-    SDL_DestroyWindow,
-    SDL_Quit,
-    SDL_PollEvent,
-    SDL_Event,
-    SDL_CreateWindow,
-    SDL_WINDOWPOS_CENTERED,
-    SDL_WINDOW_SHOWN,
-    SDL_GetWindowSurface,
-    SDL_BlitSurface,
-    SDL_UpdateWindowSurface,
-    SDL_FreeSurface,
-    SDL_CreateRGBSurface,
-    SDL_Rect,
-    SDL_BlitScaled,
-    SDL_KEYDOWN,
-    SDL_RenderClear,
-    SDL_FillRect,
-    SDL_BlendMode,
-    SDL_SetTextureBlendMode,
-    SDL_ComposeCustomBlendMode,
-    SDL_BLENDMODE_BLEND,
-    SDL_BLENDMODE_ADD,
-    SDL_SetSurfaceAlphaMod,
-    SDL_BLENDMODE_MOD,
-    SDL_CreateTextureFromSurface,
-    SDL_SetTextureBlendMode,
-    SDL_CreateWindowAndRenderer,
-    SDL_RenderCopy,
-    SDL_RenderPresent,
-    SDL_SetRenderTarget,
-    SDL_CreateTexture,
-    SDL_PIXELFORMAT_RGBA8888,
-    SDL_TEXTUREACCESS_TARGET,
-    SDL_SetRenderDrawColor,
-)
+from sdl2 import (SDL_BLENDMODE_BLEND, SDL_ComposeCustomBlendMode, SDL_CreateTexture,
+                  SDL_CreateTextureFromSurface, SDL_FreeSurface, SDL_KEYDOWN, SDL_LoadBMP,
+                  SDL_PIXELFORMAT_RGBA8888, SDL_QUIT, SDL_Quit, SDL_Rect, SDL_RenderClear,
+                  SDL_RenderCopy, SDL_RenderPresent, SDL_SetRenderDrawColor, SDL_SetRenderTarget,
+                  SDL_SetTextureBlendMode, SDL_TEXTUREACCESS_TARGET)
 
 WIDTH = 90
 HEIGHT = 90
@@ -51,9 +17,6 @@ OVERLAY_SIZE = 90
 
 
 def main():
-    window = sdl2.ext.Window("Hello World!", size=(640, 480))
-    window.show()
-
     window = sdl2.ext.Window("Hello World", size=(WIDTH * SCALE, HEIGHT * SCALE))
     window.show()
     renderer = sdl2.ext.Renderer(window)
@@ -92,6 +55,7 @@ def main():
         "flame": SDL_LoadBMP(b"flame.bmp"),
         "overlay": sdl2.sdlimage.IMG_Load(b"overlay.png"),
     }
+
     images = {
         key: SDL_CreateTextureFromSurface(renderer.sdlrenderer, img)
         for key, img in surfaces.items()
