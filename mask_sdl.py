@@ -3,6 +3,7 @@ import sys
 
 import sdl2.ext
 import sdl2.sdlimage
+import sdl2.blendmode
 from sdl2 import (
     SDL_LoadBMP,
     SDL_QUIT,
@@ -20,68 +21,133 @@ from sdl2 import (
     SDL_CreateRGBSurface,
     SDL_Rect,
     SDL_BlitScaled,
-    SDL_KEYDOWN, SDL_RenderClear, SDL_FillRect)
+    SDL_KEYDOWN,
+    SDL_RenderClear,
+    SDL_FillRect,
+    SDL_BlendMode,
+    SDL_SetTextureBlendMode,
+    SDL_ComposeCustomBlendMode,
+    SDL_BLENDMODE_BLEND,
+    SDL_BLENDMODE_ADD,
+    SDL_SetSurfaceAlphaMod,
+    SDL_BLENDMODE_MOD,
+    SDL_CreateTextureFromSurface,
+    SDL_SetTextureBlendMode,
+    SDL_CreateWindowAndRenderer,
+    SDL_RenderCopy,
+    SDL_RenderPresent,
+    SDL_SetRenderTarget,
+    SDL_CreateTexture,
+    SDL_PIXELFORMAT_RGBA8888,
+    SDL_TEXTUREACCESS_TARGET,
+    SDL_SetRenderDrawColor,
+)
 
 WIDTH = 90
 HEIGHT = 90
 SCALE = 5
 BACKGROUND_COLOR = 0x151530
+OVERLAY_SIZE = 90
+
 
 def main():
     window = sdl2.ext.Window("Hello World!", size=(640, 480))
     window.show()
 
-    window = SDL_CreateWindow(
-        b"Hello World",
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        WIDTH * SCALE,
-        HEIGHT * SCALE,
-        SDL_WINDOW_SHOWN,
+    window = sdl2.ext.Window("Hello World", size=(WIDTH * SCALE, HEIGHT * SCALE))
+    window.show()
+    renderer = sdl2.ext.Renderer(window)
+    game_tex = SDL_CreateTexture(
+        renderer.sdlrenderer,
+        SDL_PIXELFORMAT_RGBA8888,
+        SDL_TEXTUREACCESS_TARGET,
+        WIDTH,
+        HEIGHT,
     )
-    window_surface = SDL_GetWindowSurface(window)
+    temp_tex = SDL_CreateTexture(
+        renderer.sdlrenderer,
+        SDL_PIXELFORMAT_RGBA8888,
+        SDL_TEXTUREACCESS_TARGET,
+        WIDTH,
+        HEIGHT,
+    )
 
-    game_surface = SDL_CreateRGBSurface(0, WIDTH, HEIGHT, 32, 0, 0, 0, 0)
-    temp_surface = SDL_CreateRGBSurface(0, WIDTH, HEIGHT, 32, 0, 0, 0, 0)
+    blendmode = SDL_ComposeCustomBlendMode(
+        # src col factor
+        sdl2.blendmode.SDL_BLENDFACTOR_ONE,
+        # dst col factor
+        sdl2.blendmode.SDL_BLENDFACTOR_ONE,
+        # color operation
+        sdl2.blendmode.SDL_BLENDOPERATION_SUBTRACT,
+        # src alpha factor
+        sdl2.blendmode.SDL_BLENDFACTOR_SRC_ALPHA,
+        # dst alpha factor
+        sdl2.blendmode.SDL_BLENDFACTOR_ZERO,
+        # alpha operation
+        sdl2.blendmode.SDL_BLENDOPERATION_ADD,
+    )
 
-    images = {
+    surfaces = {
         "link-right": SDL_LoadBMP(b"link-right.bmp"),
         "flame": SDL_LoadBMP(b"flame.bmp"),
-        "link-right-alpha": sdl2.sdlimage.IMG_Load(b"link-right.png"),
-        "overlay-alpha": sdl2.sdlimage.IMG_Load(b"overlay.png")
+        "overlay": sdl2.sdlimage.IMG_Load(b"overlay.png"),
+    }
+    images = {
+        key: SDL_CreateTextureFromSurface(renderer.sdlrenderer, img)
+        for key, img in surfaces.items()
     }
 
-    window_rect = SDL_Rect(0, 0, WIDTH * SCALE, HEIGHT * SCALE)
-    game_rect = SDL_Rect(0, 0, WIDTH, HEIGHT)
-    temp_rect = SDL_Rect(0, 0, WIDTH, HEIGHT)
-
-    link_x = 0
+    link_x = 3
     flame_x = 20
     flame_y = 20
     flame_w = 16
     flame_h = 16
-    overlay_x = flame_x + (flame_w//2) - 25
-    overlay_y = flame_y + (flame_h//2) - 25
 
     def draw():
         # clear the surface
-        SDL_FillRect(game_surface, game_rect, BACKGROUND_COLOR)
+        SDL_RenderClear(renderer.sdlrenderer)
 
-        # blit Link
-        target = SDL_Rect(link_x, link_x, 16, 16)
-        SDL_BlitSurface(images["link-right"], None, game_surface, target)
+        # start rendering to the temporary texture
+        # which will contain Link with a shadow
+        SDL_SetRenderTarget(renderer.sdlrenderer, temp_tex)
+        # with a transparent background
+        SDL_SetRenderDrawColor(renderer.sdlrenderer, 0, 0, 0, 0)
+        SDL_RenderClear(renderer.sdlrenderer)
 
-        # blit flame
-        target = SDL_Rect(flame_x, flame_y, 16, 16)
-        SDL_BlitSurface(images["flame"], None, game_surface, target)
+        # blit overlay to temp texture
+        link_target = SDL_Rect(link_x, link_x, 16, 16)
+        overlay_target = SDL_Rect(flame_x + link_x, flame_y + link_x, 16, 16)
+        SDL_RenderCopy(
+            renderer.sdlrenderer, images["overlay"], overlay_target, link_target
+        )
 
-        # blit overlay
-        target = SDL_Rect(overlay_x, overlay_y, 50, 50)
-        SDL_BlitSurface(images["overlay-alpha"], None, game_surface, target)
+        # blit Link to temp texture,
+        # using his own alpha but subtracting colour from the overlay
+        link_target = SDL_Rect(link_x, link_x, 16, 16)
+        SDL_SetTextureBlendMode(images["link-right"], blendmode)
+        SDL_RenderCopy(renderer.sdlrenderer, images["link-right"], None, link_target)
+
+        # render to the game map
+        SDL_SetRenderTarget(renderer.sdlrenderer, game_tex)
+        # with a gloomy red backdrop
+        SDL_SetRenderDrawColor(renderer.sdlrenderer, 30, 20, 25, 255)
+        SDL_RenderClear(renderer.sdlrenderer)
+
+        # draw the bonfire
+        target = SDL_Rect(flame_x, flame_y, flame_w, flame_h)
+        SDL_RenderCopy(renderer.sdlrenderer, images["flame"], None, target)
+
+        # draw the game map to the screen, scaled up
+        SDL_SetTextureBlendMode(temp_tex, SDL_BLENDMODE_BLEND)
+        SDL_RenderCopy(renderer.sdlrenderer, temp_tex, None, None)
 
         # blit surface onto screen, scaled up
-        SDL_BlitScaled(game_surface, game_rect, window_surface, window_rect)
-        SDL_UpdateWindowSurface(window)
+        SDL_SetRenderTarget(renderer.sdlrenderer, None)
+        SDL_RenderCopy(renderer.sdlrenderer, game_tex, None, None)
+
+        SDL_RenderPresent(renderer.sdlrenderer)
+
+        window.refresh()
 
     running = True
     while running:
@@ -96,10 +162,10 @@ def main():
         sdl2.SDL_Delay(10)
         draw()
 
-    for image in images.values():
+    for image in surfaces.values():
         SDL_FreeSurface(image)
 
-    SDL_DestroyWindow(window)
+    window.close()
     SDL_Quit()
     return 0
 
